@@ -286,8 +286,9 @@ const downloadPng = async () => {
     );
 
     alert(
-      "ไม่สามารถสร้างไฟล์ PNG ได้"
-    );
+  "ไม่สามารถสร้างไฟล์ PNG ได้\n\n" +
+  String(error)
+);
 
   } finally {
     setIsExporting(false);
