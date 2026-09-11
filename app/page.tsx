@@ -105,6 +105,18 @@ export default function Home() {
     setActivePosition,
   ] = useState<string | null>(null);
 
+    // =====================================================
+  // CAPTAIN
+  // =====================================================
+
+  const [captainId, setCaptainId] =
+    useState<string | null>(null);
+
+  const [
+    captainPickerOpen,
+    setCaptainPickerOpen,
+  ] = useState(false);
+
   // =====================================================
   // SUBS
   // =====================================================
@@ -476,6 +488,44 @@ export default function Home() {
         (id): id is string =>
           Boolean(id)
       );
+
+  const captainCandidates =
+    selectedPlayerIds
+      .map((playerId) =>
+        players.find(
+          (player) =>
+            player.id === playerId
+        )
+      )
+      .filter(
+        (
+          player
+        ): player is (typeof players)[number] =>
+          Boolean(player)
+      );
+
+  // ถ้ากัปตันหลุดจาก Starting XI
+  // ให้ยกเลิกกัปตันอัตโนมัติ
+  useEffect(() => {
+    if (!captainId) {
+      return;
+    }
+
+    const stillStarting =
+      currentPositions.some(
+        (position) =>
+          lineup[position.id] ===
+          captainId
+      );
+
+    if (!stillStarting) {
+      setCaptainId(null);
+    }
+  }, [
+    captainId,
+    currentPositions,
+    lineup,
+  ]);
 
   // =====================================================
   // AVAILABLE STARTERS
@@ -945,6 +995,37 @@ export default function Home() {
             {selectedSubs.length}/9)
           </button>
 
+          {/* CAPTAIN */}
+
+          <button
+            type="button"
+
+            onClick={() =>
+              setCaptainPickerOpen(
+                true
+              )
+            }
+
+            disabled={
+              selectedPlayerIds.length === 0
+            }
+
+            className="
+              rounded-lg
+              bg-yellow-500
+              px-4
+              py-2
+              font-bold
+              text-black
+              hover:bg-yellow-400
+              disabled:cursor-not-allowed
+              disabled:opacity-40
+            "
+          >
+            {captainId
+              ? "✓ Captain"
+              : "Choose Captain"}
+          </button>
 
           {/* MOVE MODE */}
 
@@ -1258,6 +1339,41 @@ export default function Home() {
                       false
                     }
                   />
+
+                  {captainId ===
+                    player.id && (
+
+                    <span
+                      className="
+                        pointer-events-none
+                        absolute
+                        z-40
+                        flex
+                        items-center
+                        justify-center
+                        rounded-full
+                        font-black
+                      "
+
+                      style={{
+                        width: "22%",
+                        aspectRatio:
+                          "1 / 1",
+                        right: "10%",
+                        top: "30%",
+                        backgroundColor:
+                          "#facc15",
+                        color: "#000000",
+                        fontSize:
+                          "clamp(18px, 1.8vw, 18px)",
+                        boxShadow:
+                          "0 2px 8px rgba(245, 241, 241, 0.45)",
+                      }}
+                    >
+                      C
+                    </span>
+
+                  )}
 
                 </button>
 
@@ -1590,6 +1706,192 @@ export default function Home() {
         </div>
 
       )}
+
+      {/* =================================================
+          CAPTAIN PICKER
+      ================================================= */}
+
+      {captainPickerOpen && (
+
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4">
+
+          <div className="flex max-h-[85vh] w-full max-w-[500px] flex-col overflow-hidden rounded-2xl bg-[#0b1030] text-white shadow-2xl">
+
+            {/* HEADER */}
+
+            <div className="flex items-center justify-between border-b border-white/10 p-5">
+
+              <div>
+
+                <h2 className="text-xl font-bold">
+                  Choose Captain
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-400">
+                  Starting XI only
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+
+                onClick={() =>
+                  setCaptainPickerOpen(
+                    false
+                  )
+                }
+
+                className="text-3xl leading-none text-gray-400 hover:text-white"
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            {/* PLAYER LIST */}
+
+            <div className="flex-1 overflow-y-auto">
+
+              {captainCandidates.map(
+                (player) => {
+
+                  const isCaptain =
+                    captainId ===
+                    player.id;
+
+                  return (
+
+                    <button
+                      key={
+                        player.id
+                      }
+
+                      type="button"
+
+                      onClick={() => {
+                        setCaptainId(
+                          player.id
+                        );
+
+                        setCaptainPickerOpen(
+                          false
+                        );
+                      }}
+
+                      className="
+                        flex
+                        w-full
+                        items-center
+                        gap-4
+                        border-b
+                        border-white/10
+                        p-4
+                        text-left
+                        hover:bg-white/10
+                      "
+                    >
+
+                      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
+
+                        <img
+                          src={
+                            player.subImage
+                          }
+
+                          alt={
+                            player.name
+                          }
+
+                          className="h-full w-full object-contain"
+
+                          draggable={
+                            false
+                          }
+                        />
+
+                      </div>
+
+
+                      <div className="flex-1">
+
+                        <div className="text-lg font-semibold">
+                          {player.name}
+                        </div>
+
+                        <div className="mt-1 text-sm text-gray-400">
+                          {player.positions.join(
+                            " / "
+                          )}
+                          {" · "}
+                          {player.number}
+                        </div>
+
+                      </div>
+
+
+                      {isCaptain && (
+
+                        <div
+                          className="flex h-9 w-9 items-center justify-center rounded-full font-black"
+
+                          style={{
+                            backgroundColor:
+                              "#e2f112",
+                            color:
+                              "#000000",
+                          }}
+                        >
+                          C
+                        </div>
+
+                      )}
+
+                    </button>
+
+                  );
+                }
+              )}
+
+            </div>
+
+
+            {/* REMOVE CAPTAIN */}
+
+            {captainId && (
+
+              <div className="border-t border-white/10 p-4">
+
+                <button
+                  type="button"
+
+                  onClick={() => {
+                    setCaptainId(
+                      null
+                    );
+
+                    setCaptainPickerOpen(
+                      false
+                    );
+                  }}
+
+                  className="w-full rounded-lg bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-500"
+                >
+                  Remove Captain
+                </button>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </div>
+
+      )}
+
+
 
       {/* =================================================
           SUB PICKER
