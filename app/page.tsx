@@ -188,24 +188,62 @@ const downloadPng = async () => {
 
     // สร้าง PNG เป็น Blob โดยตรง
     // ไม่ขยาย DOM จริงบนหน้าจอ
-    const blob = await toBlob(node, {
-      canvasWidth: 2338,
-      canvasHeight: 2921,
-      pixelRatio: 1,
-      cacheBust: true,
-      backgroundColor: "#000000",
+    const rect = node.getBoundingClientRect();
 
-      filter: (element) => {
-        if (
-          element instanceof HTMLElement &&
-          element.dataset.exportIgnore === "true"
-        ) {
-          return false;
-        }
+if (rect.width <= 0 || rect.height <= 0) {
+  throw new Error("Graphic size is invalid");
+}
 
-        return true;
-      },
-    });
+// ขยายจากขนาดที่เห็นบนหน้าจอ
+// ไปเป็นไฟล์กว้าง 2338px
+const exportScale = 2338 / rect.width;
+
+const exportOptions = {
+  pixelRatio: exportScale,
+  cacheBust: false,
+  backgroundColor: "#000000",
+
+  // ป้องกัน mx-auto ทำให้ภาพเลื่อนไปด้านข้าง
+  style: {
+    margin: "0",
+  },
+
+  filter: (element: HTMLElement) => {
+    if (
+      element instanceof HTMLElement &&
+      element.dataset.exportIgnore === "true"
+    ) {
+      return false;
+    }
+
+    return true;
+  },
+};
+
+// Safari / iPhone ให้ render รอบเบา ๆ ก่อน
+const appleMobile =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (
+    navigator.platform === "MacIntel" &&
+    navigator.maxTouchPoints > 1
+  );
+
+if (appleMobile) {
+  await toBlob(node, {
+    ...exportOptions,
+    pixelRatio: 1,
+  });
+
+  await new Promise((resolve) =>
+    setTimeout(resolve, 200)
+  );
+}
+
+// รอบนี้คือไฟล์จริง
+const blob = await toBlob(
+  node,
+  exportOptions
+);
 
     if (!blob) {
       throw new Error("PNG Blob was not created");
