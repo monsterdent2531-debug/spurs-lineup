@@ -11,7 +11,7 @@ import type {
 } from "react";
 
 import { toBlob } from "html-to-image";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 
 import { players } from "../data/players";
 import { formations } from "../data/formations";
