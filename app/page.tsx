@@ -11,6 +11,7 @@ import type {
 } from "react";
 
 import { toBlob } from "html-to-image";
+import html2canvas from "html2canvas";
 
 import { players } from "../data/players";
 import { formations } from "../data/formations";
@@ -228,22 +229,33 @@ const appleMobile =
     navigator.maxTouchPoints > 1
   );
 
+let blob: Blob | null = null;
+
 if (appleMobile) {
-  await toBlob(node, {
-    ...exportOptions,
-    pixelRatio: 1,
+  // iPhone / iPad ใช้ html2canvas
+  const rect = node.getBoundingClientRect();
+  const exportScale = 2338 / rect.width;
+
+  const canvas = await html2canvas(node, {
+    backgroundColor: "#000000",
+    scale: exportScale,
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
   });
 
-  await new Promise((resolve) =>
-    setTimeout(resolve, 200)
-  );
-}
+  blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(
+      (result) => resolve(result),
+      "image/png",
+      1
+    );
+  });
 
-// รอบนี้คือไฟล์จริง
-const blob = await toBlob(
-  node,
-  exportOptions
-);
+} else {
+  // PC ใช้ toBlob เหมือนเดิม
+  blob = await toBlob(node, exportOptions);
+}
 
     if (!blob) {
       throw new Error("PNG Blob was not created");
