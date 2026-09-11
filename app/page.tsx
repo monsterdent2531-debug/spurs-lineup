@@ -1356,7 +1356,7 @@ export default function Home() {
                       "
 
                       style={{
-                        width: "15%",
+                        width: "18%",
                         aspectRatio:
                           "1 / 1",
                         right: "10%",
@@ -1365,7 +1365,7 @@ export default function Home() {
                           "#facc15",
                         color: "#020000",
                         fontSize:
-                          "clamp(10px, 1.8vw, 18px)",
+                          "clamp(10px, 1.8vw, 15px)",
                         boxShadow:
                           "0 2px 8px rgba(0,0,0,0.45)",
                       }}
