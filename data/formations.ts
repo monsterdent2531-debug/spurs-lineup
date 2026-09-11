@@ -48,7 +48,7 @@ export const formations = {
     {
       id: "LW",
       label: "Left Wing",
-      left: 10,
+      left: 20,
       top: 25,
     },
     {
@@ -60,7 +60,7 @@ export const formations = {
     {
       id: "RW",
       label: "Right Wing",
-      left: 74,
+      left: 64,
       top: 25,
     },
 
