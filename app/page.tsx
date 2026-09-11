@@ -147,205 +147,251 @@ export default function Home() {
   const [isExporting, setIsExporting] =
     useState(false);
 
-const downloadPng = async () => {
-  const node = graphicRef.current;
+  const [pendingShareFile, setPendingShareFile] =
+    useState<File | null>(null);
 
-  if (!node || isExporting) {
-    return;
-  }
-
-  try {
-    setIsExporting(true);
-
-    // รอ Font โหลดให้ครบ
-    if (document.fonts) {
-      await document.fonts.ready;
-    }
-
-    // รอรูปทั้งหมดโหลดให้ครบ
-    const images = Array.from(
-      node.querySelectorAll("img")
-    );
-
-    await Promise.all(
-      images.map((img) => {
-        if (img.complete && img.naturalWidth > 0) {
-          return Promise.resolve();
-        }
-
-        return new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-        });
-      })
-    );
-
-    // รอ browser วาดหน้าให้เสร็จ
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
-      });
-    });
-
-    // สร้าง PNG เป็น Blob โดยตรง
-    // ไม่ขยาย DOM จริงบนหน้าจอ
-    const rect = node.getBoundingClientRect();
-
-if (rect.width <= 0 || rect.height <= 0) {
-  throw new Error("Graphic size is invalid");
-}
-
-// ขยายจากขนาดที่เห็นบนหน้าจอ
-// ไปเป็นไฟล์กว้าง 2338px
-const exportScale = 2338 / rect.width;
-
-const exportOptions = {
-  pixelRatio: exportScale,
-  cacheBust: false,
-  backgroundColor: "#000000",
-
-  // ป้องกัน mx-auto ทำให้ภาพเลื่อนไปด้านข้าง
-  style: {
-    margin: "0",
-  },
-
-  filter: (element: HTMLElement) => {
-    if (
-      element instanceof HTMLElement &&
-      element.dataset.exportIgnore === "true"
-    ) {
-      return false;
-    }
-
-    return true;
-  },
-};
-
-// Safari / iPhone ให้ render รอบเบา ๆ ก่อน
-const appleMobile =
-  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-  (
-    navigator.platform === "MacIntel" &&
-    navigator.maxTouchPoints > 1
-  );
-
-let blob: Blob | null = null;
-
-if (appleMobile) {
-  // iPhone / iPad ใช้ html2canvas
-  const rect = node.getBoundingClientRect();
-  const exportScale = 2338 / rect.width;
-
-  const canvas = await html2canvas(node, {
-    backgroundColor: "#000000",
-    scale: exportScale,
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-  });
-
-  blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(
-      (result) => resolve(result),
-      "image/png",
-      1
-    );
-  });
-
-} else {
-  // PC ใช้ toBlob เหมือนเดิม
-  blob = await toBlob(node, exportOptions);
-}
-
-    if (!blob) {
-      throw new Error("PNG Blob was not created");
-    }
-
-    const filename =
-      `${homeTeam.id}-vs-${awayTeam.id}-lineup.png`;
-
-    const file = new File(
-      [blob],
-      filename,
-      {
-        type: "image/png",
-      }
-    );
-
-    const isIOS =
-      /iPad|iPhone|iPod/.test(
-        navigator.userAgent
-      ) ||
+  const isAppleMobile = () => {
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (
         navigator.platform === "MacIntel" &&
         navigator.maxTouchPoints > 1
-      );
+      )
+    );
+  };
 
-    // iPhone / iPad
-    if (
-      isIOS &&
-      navigator.share &&
-      navigator.canShare?.({
-        files: [file],
-      })
-    ) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: filename,
-        });
+  const downloadPng = async () => {
+    const node = graphicRef.current;
 
-        return;
-      } catch (shareError) {
-        if (
-          shareError instanceof DOMException &&
-          shareError.name === "AbortError"
-        ) {
-          return;
-        }
-
-        console.warn(
-          "Share failed:",
-          shareError
-        );
-      }
+    if (!node || isExporting) {
+      return;
     }
 
-    // PC / Browser อื่น
-    const url =
-      URL.createObjectURL(blob);
+    try {
+      setIsExporting(true);
+      setPendingShareFile(null);
 
-    const link =
-      document.createElement("a");
+      // รอ Font โหลดให้ครบ
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
 
-    link.href = url;
-    link.download = filename;
+      // รอรูปทั้งหมดโหลดให้ครบ
+      const images = Array.from(
+        node.querySelectorAll("img")
+      );
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      await Promise.all(
+        images.map((img) => {
+          if (
+            img.complete &&
+            img.naturalWidth > 0
+          ) {
+            return Promise.resolve();
+          }
 
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 1000);
+          return new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        })
+      );
 
-  } catch (error) {
-    console.error(
-      "Export error:",
-      error
-    );
+      // รอ browser render ให้เสร็จ
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+      });
 
-    alert(
-  "ไม่สามารถสร้างไฟล์ PNG ได้\n\n" +
-  String(error)
-);
+      const rect =
+        node.getBoundingClientRect();
 
-  } finally {
-    setIsExporting(false);
-  }
-};
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        throw new Error(
+          "Graphic size is invalid"
+        );
+      }
 
+      const exportScale =
+        2338 / rect.width;
 
+      let blob: Blob | null = null;
+
+      // ===================================================
+      // iPhone / iPad
+      // ใช้ html2canvas-pro
+      // ===================================================
+
+      if (isAppleMobile()) {
+        const canvas =
+          await html2canvas(node, {
+            backgroundColor: "#000000",
+            scale: exportScale,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+          });
+
+        blob =
+          await new Promise<Blob | null>(
+            (resolve) => {
+              canvas.toBlob(
+                (result) => {
+                  resolve(result);
+                },
+                "image/png",
+                1
+              );
+            }
+          );
+      }
+
+      // ===================================================
+      // PC / Browser อื่น
+      // ใช้ html-to-image
+      // ===================================================
+
+      else {
+        blob = await toBlob(node, {
+          pixelRatio: exportScale,
+          cacheBust: false,
+          backgroundColor: "#000000",
+
+          style: {
+            margin: "0",
+          },
+
+          filter: (element) => {
+            if (
+              element instanceof HTMLElement &&
+              element.dataset.exportIgnore ===
+                "true"
+            ) {
+              return false;
+            }
+
+            return true;
+          },
+        });
+      }
+
+      if (!blob) {
+        throw new Error(
+          "PNG Blob was not created"
+        );
+      }
+
+      const filename =
+        `${homeTeam.id}-vs-${awayTeam.id}-lineup.png`;
+
+      const file = new File(
+        [blob],
+        filename,
+        {
+          type: "image/png",
+        }
+      );
+
+      // ===================================================
+      // iPhone / iPad
+      // สร้างไฟล์เสร็จแล้วให้กด Share อีกครั้ง
+      // ===================================================
+
+      if (isAppleMobile()) {
+        setPendingShareFile(file);
+        return;
+      }
+
+      // ===================================================
+      // PC ดาวน์โหลดทันที
+      // ===================================================
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const link =
+        document.createElement("a");
+
+      link.href = url;
+      link.download = filename;
+
+      document.body.appendChild(link);
+
+      link.click();
+      link.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error(
+        "Export error:",
+        error
+      );
+
+      alert(
+        "ไม่สามารถสร้างไฟล์ PNG ได้\n\n" +
+        String(error)
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // =====================================================
+  // SHARE PNG — iPhone / iPad
+  // =====================================================
+
+  const sharePng = async () => {
+    if (!pendingShareFile) {
+      return;
+    }
+
+    try {
+      if (
+        navigator.share &&
+        navigator.canShare?.({
+          files: [pendingShareFile],
+        })
+      ) {
+        await navigator.share({
+          files: [pendingShareFile],
+          title:
+            pendingShareFile.name,
+        });
+
+        setPendingShareFile(null);
+        return;
+      }
+
+      alert(
+        "iPhone เครื่องนี้ไม่รองรับการแชร์ไฟล์ PNG"
+      );
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
+      }
+
+      console.error(
+        "Share error:",
+        error
+      );
+
+      alert(
+        "ไม่สามารถเปิด Share Sheet ได้\n\n" +
+        String(error)
+      );
+    }
+  };
   // =====================================================
   // POSITION COMPATIBILITY
   // =====================================================
@@ -968,7 +1014,22 @@ if (appleMobile) {
               ? "Creating PNG..."
               : "Download PNG"}
           </button>
-
+{pendingShareFile && (
+  <button
+    type="button"
+    onClick={sharePng}
+    className="
+      rounded-lg
+      bg-green-600
+      px-4
+      py-2
+      font-bold
+      text-white
+    "
+  >
+    Save / Share PNG
+  </button>
+)}
         </div>
 
 
