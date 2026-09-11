@@ -224,18 +224,61 @@ const downloadPng = async () => {
     node.style.maxWidth = oldMaxWidth;
     node.style.aspectRatio = oldAspectRatio;
     node.style.margin = oldMargin;
+    
+// Download / Share
+const filename =
+  `${homeTeam.id}-vs-${awayTeam.id}-lineup.png`;
 
-    // Download
-    const link = document.createElement("a");
+const response = await fetch(dataUrl);
+const blob = await response.blob();
 
-    link.download =
-      `${homeTeam.id}-vs-${awayTeam.id}-lineup.png`;
+const file = new File([blob], filename, {
+  type: "image/png",
+});
 
-    link.href = dataUrl;
+const isIOS =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" &&
+    navigator.maxTouchPoints > 1);
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+// iPhone / iPad → เปิด Share Sheet
+if (
+  isIOS &&
+  navigator.share &&
+  navigator.canShare?.({ files: [file] })
+) {
+  try {
+    await navigator.share({
+      files: [file],
+      title: filename,
+    });
+    return;
+  } catch (shareError) {
+    if (
+      shareError instanceof DOMException &&
+      shareError.name === "AbortError"
+    ) {
+      return;
+    }
+
+    console.warn("Share failed:", shareError);
+  }
+}
+
+// PC / Browser อื่น → Download ปกติ
+const url = URL.createObjectURL(blob);
+
+const link = document.createElement("a");
+link.href = url;
+link.download = filename;
+
+document.body.appendChild(link);
+link.click();
+link.remove();
+
+setTimeout(() => {
+  URL.revokeObjectURL(url);
+}, 1000);
 
   } catch (error) {
     console.error("Export error:", error);
