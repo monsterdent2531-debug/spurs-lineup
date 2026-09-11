@@ -10,7 +10,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { toPng } from "html-to-image";
+import { toBlob } from "html-to-image";
 
 import { players } from "../data/players";
 import { formations } from "../data/formations";
@@ -156,39 +156,19 @@ const downloadPng = async () => {
   try {
     setIsExporting(true);
 
+    // รอ Font โหลดให้ครบ
     if (document.fonts) {
       await document.fonts.ready;
     }
 
-    // เก็บค่าเดิมไว้
-    const oldWidth = node.style.width;
-    const oldHeight = node.style.height;
-    const oldMaxWidth = node.style.maxWidth;
-    const oldAspectRatio = node.style.aspectRatio;
-    const oldMargin = node.style.margin;
-
-    // ขยาย Graphic ตัวจริงเป็นขนาด Export
-    node.style.width = "2338px";
-    node.style.height = "2921px";
-    node.style.maxWidth = "none";
-    node.style.aspectRatio = "auto";
-    node.style.margin = "0";
-
-    // รอ browser จัด layout ใหม่
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
-      });
-    });
-
-    // รอรูปทั้งหมดโหลด
+    // รอรูปทั้งหมดโหลดให้ครบ
     const images = Array.from(
       node.querySelectorAll("img")
     );
 
     await Promise.all(
       images.map((img) => {
-        if (img.complete) {
+        if (img.complete && img.naturalWidth > 0) {
           return Promise.resolve();
         }
 
@@ -199,12 +179,21 @@ const downloadPng = async () => {
       })
     );
 
-    // สร้าง PNG
-    const dataUrl = await toPng(node, {
-      width: 2338,
-      height: 2921,
+    // รอ browser วาดหน้าให้เสร็จ
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
+    // สร้าง PNG เป็น Blob โดยตรง
+    // ไม่ขยาย DOM จริงบนหน้าจอ
+    const blob = await toBlob(node, {
+      canvasWidth: 2338,
+      canvasHeight: 2921,
       pixelRatio: 1,
       cacheBust: true,
+      backgroundColor: "#000000",
 
       filter: (element) => {
         if (
@@ -218,78 +207,92 @@ const downloadPng = async () => {
       },
     });
 
-    // คืนขนาดหน้าเว็บ
-    node.style.width = oldWidth;
-    node.style.height = oldHeight;
-    node.style.maxWidth = oldMaxWidth;
-    node.style.aspectRatio = oldAspectRatio;
-    node.style.margin = oldMargin;
-    
-// Download / Share
-const filename =
-  `${homeTeam.id}-vs-${awayTeam.id}-lineup.png`;
-
-const response = await fetch(dataUrl);
-const blob = await response.blob();
-
-const file = new File([blob], filename, {
-  type: "image/png",
-});
-
-const isIOS =
-  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-  (navigator.platform === "MacIntel" &&
-    navigator.maxTouchPoints > 1);
-
-// iPhone / iPad → เปิด Share Sheet
-if (
-  isIOS &&
-  navigator.share &&
-  navigator.canShare?.({ files: [file] })
-) {
-  try {
-    await navigator.share({
-      files: [file],
-      title: filename,
-    });
-    return;
-  } catch (shareError) {
-    if (
-      shareError instanceof DOMException &&
-      shareError.name === "AbortError"
-    ) {
-      return;
+    if (!blob) {
+      throw new Error("PNG Blob was not created");
     }
 
-    console.warn("Share failed:", shareError);
-  }
-}
+    const filename =
+      `${homeTeam.id}-vs-${awayTeam.id}-lineup.png`;
 
-// PC / Browser อื่น → Download ปกติ
-const url = URL.createObjectURL(blob);
+    const file = new File(
+      [blob],
+      filename,
+      {
+        type: "image/png",
+      }
+    );
 
-const link = document.createElement("a");
-link.href = url;
-link.download = filename;
+    const isIOS =
+      /iPad|iPhone|iPod/.test(
+        navigator.userAgent
+      ) ||
+      (
+        navigator.platform === "MacIntel" &&
+        navigator.maxTouchPoints > 1
+      );
 
-document.body.appendChild(link);
-link.click();
-link.remove();
+    // iPhone / iPad
+    if (
+      isIOS &&
+      navigator.share &&
+      navigator.canShare?.({
+        files: [file],
+      })
+    ) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
 
-setTimeout(() => {
-  URL.revokeObjectURL(url);
-}, 1000);
+        return;
+      } catch (shareError) {
+        if (
+          shareError instanceof DOMException &&
+          shareError.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.warn(
+          "Share failed:",
+          shareError
+        );
+      }
+    }
+
+    // PC / Browser อื่น
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
 
   } catch (error) {
-    console.error("Export error:", error);
+    console.error(
+      "Export error:",
+      error
+    );
 
-    alert("ไม่สามารถสร้างไฟล์ PNG ได้");
+    alert(
+      "ไม่สามารถสร้างไฟล์ PNG ได้"
+    );
 
   } finally {
     setIsExporting(false);
   }
 };
-
 
 
   // =====================================================
