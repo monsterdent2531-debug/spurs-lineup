@@ -52,7 +52,7 @@ export const players = [
     name: "Tosin Adarabioyo",
     shortName: "TOSIN",
     number: 4,
-    positions: ["CB", "RCB"],
+    positions: ["CB", "RCB", "RB"],
     starterImage: "/images/players/starters/tosin.webp",
     subImage: "/images/players/subs/tosin.webp",
   },
@@ -211,6 +211,18 @@ export const players = [
     subImage: "/images/players/subs/luca.webp",
   },
 
+    {
+    id: "Callum Olusesi",
+    name: "Callum Olusesi",
+    shortName: "OLUSESI",
+    number: 52,
+    positions: ["CAM", "AM", "LW", "RW", "CM"],
+    starterImage: "/images/players/starters/luca.webp",
+    subImage: "/images/players/subs/olusesi.webp",
+  },
+
+
+  
   // =====================================================
   // ATTACKERS
   // =====================================================
